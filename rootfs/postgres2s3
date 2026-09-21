@@ -1,0 +1,38 @@
+#!/bin/bash
+set -euo pipefail
+
+: "${POSTGRES_HOST:?POSTGRES_HOST is required}"
+: "${POSTGRES_PORT:=5432}"
+: "${POSTGRES_DATABASE:?POSTGRES_DATABASE is required}"
+: "${POSTGRES_USER:?POSTGRES_USER is required}"
+: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+: "${AWS_S3_BUCKET:?AWS_S3_BUCKET is required}"
+: "${AWS_S3_FILE_PREFIX:?AWS_S3_FILE_PREFIX is required}"
+
+export PGPASSWORD="${POSTGRES_PASSWORD}"
+
+dumpfile="$(mktemp)"
+trap 'rm -f "${dumpfile}" "${dumpfile}.gz"' EXIT
+
+echo "[$(date -Iseconds)] Started pg_dump of '${POSTGRES_DATABASE}' on ${POSTGRES_HOST}:${POSTGRES_PORT}"
+pg_dump \
+    --host="${POSTGRES_HOST}" \
+    --port="${POSTGRES_PORT}" \
+    --username="${POSTGRES_USER}" \
+    --dbname="${POSTGRES_DATABASE}" \
+    --no-password \
+    > "${dumpfile}"
+
+echo "[$(date -Iseconds)] Compressing dump ($(wc -c < "${dumpfile}") bytes)"
+gzip "${dumpfile}"
+
+s3filename="${AWS_S3_FILE_PREFIX}-$(date +%s).sql.gz"
+
+echo "[$(date -Iseconds)] Started s3 upload to s3://${AWS_S3_BUCKET}/${s3filename}"
+if [ -n "${AWS_ENDPOINT_URL:-}" ]; then
+    aws --endpoint-url "${AWS_ENDPOINT_URL}" s3 cp "${dumpfile}.gz" "s3://${AWS_S3_BUCKET}/${s3filename}"
+else
+    aws s3 cp "${dumpfile}.gz" "s3://${AWS_S3_BUCKET}/${s3filename}"
+fi
+
+echo "[$(date -Iseconds)] Done"
