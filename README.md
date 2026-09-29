@@ -33,7 +33,7 @@ docker run --rm \
     -e AWS_SECRET_ACCESS_KEY=... \
     -e AWS_S3_BUCKET=pgdump-softonic-infrastructure \
     -e AWS_S3_FILE_PREFIX=sonarqube/sonarqube \
-    softonic/postgres-backup:0.1.0
+    softonic/postgres-backup:0.2.0
 ```
 
-The bundled `pg_dump` is version 15, which supports PostgreSQL 14 and 15 servers.
+The bundled `pg_dump` is version 17. It refuses to dump a newer server, but dumps any older one, so it covers the PostgreSQL 14, 15 and 17 instances alike.
